@@ -14,5 +14,5 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
-          projectId: your-project-id  # ⚠️ REPLACE with your exact Firebase Project ID
+          projectId: chat-with-anyone-73526  # ⚠️ REPLACE with your exact Firebase Project ID
           entryPoint: .
