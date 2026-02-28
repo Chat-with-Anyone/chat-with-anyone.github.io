@@ -72,3 +72,20 @@ body { background-color: #d1d7db; display: flex; justify-content: center; align-
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 #close-modal-btn { background: #ccc; color: #333; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
 #save-profile-btn { background: #128C7E; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+
+/* --- LOGO STYLING --- */
+.login-logo {
+    width: 80px;          /* Makes it a nice size for the login box */
+    height: 80px;
+    border-radius: 50%;   /* Makes the image a perfect circle */
+    object-fit: cover;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.header-logo {
+    height: 35px;         /* Fits perfectly in the top bar */
+    width: 35px;
+    border-radius: 50%;   /* Circle shape */
+    object-fit: cover;
+}
