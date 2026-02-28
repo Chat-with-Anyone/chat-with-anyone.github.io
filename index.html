@@ -84,7 +84,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        // BUG FIX: Removed serverTimestamp, imported Timestamp instead
+        import { getFirestore, doc, setDoc, updateDoc, collection, onSnapshot, addDoc, Timestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA_lmaWDdayWIOKK02h2uvZSeBasdUonXc",
@@ -206,7 +207,6 @@
 
             const q = query(collection(db, "chats", currentChatId, "messages"), orderBy("timestamp", "asc"));
             
-            // BUG FIX: Added { serverTimestamps: "estimate" } to instantly load new messages
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 messagesContainer.innerHTML = ""; 
                 snapshot.forEach((doc) => {
@@ -214,7 +214,6 @@
                     const div = document.createElement("div");
                     div.className = msg.senderId === currentUser.uid ? "message my-message" : "message their-message";
                     
-                    // NEW FEATURE: Format the timestamp nicely (e.g., 10:45 AM)
                     let timeString = "Just now";
                     if (msg.timestamp) {
                         timeString = msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -237,8 +236,12 @@
             messageInput.value = ""; 
 
             await setDoc(doc(db, "chats", currentChatId), { participants: [currentUser.uid, currentChatUser.uid] }, { merge: true });
+            
+            // BUG FIX: Changed serverTimestamp() to Timestamp.now() so it shows up instantly
             await addDoc(collection(db, "chats", currentChatId, "messages"), {
-                text: text, senderId: currentUser.uid, timestamp: serverTimestamp()
+                text: text, 
+                senderId: currentUser.uid, 
+                timestamp: Timestamp.now() 
             });
         });
 
