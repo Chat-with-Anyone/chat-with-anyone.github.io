@@ -6,10 +6,12 @@
     <meta name="google-site-verification" content="uxFFc2wW4266GeX3SJD-_9sGId4Mi6wer2hOxYW8SD0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chat with Anyone</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div id="login-screen" class="screen">
         <div class="auth-box">
             <h1>Chat with Anyone</h1>
@@ -18,25 +20,21 @@
         </div>
     </div>
 
-    <div id="app-screen" class="screen" style="display: none;">
+    <div id="app-screen">
         
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="my-profile-info">
-                    <img id="my-profile-pic" src="" alt="Me" width="40" style="border-radius: 50%;">
-                    <span id="my-name">My Name</span>
+                    <img id="my-profile-pic" src="" alt="Me">
+                    <span id="my-name">Name</span>
                 </div>
                 <div class="header-buttons">
-                    <button id="edit-profile-btn">Edit Profile</button>
+                    <button id="edit-profile-btn">Edit</button>
                     <button id="logout-btn">Logout</button>
                 </div>
             </div>
-            <div class="search-bar">
-                <input type="text" id="search-input" placeholder="Search contacts...">
-            </div>
             <div class="user-list-container">
-                <ul id="user-list">
-                    </ul>
+                <ul id="user-list"></ul>
             </div>
         </div>
 
@@ -44,11 +42,7 @@
             <div class="chat-header">
                 <span id="chat-with-name">Select a contact to start chatting</span>
             </div>
-            
-            <div class="messages-container" id="messages">
-                <div class="welcome-text">Start a conversation!</div>
-            </div>
-
+            <div class="messages-container" id="messages"></div>
             <div class="chat-input-area" id="input-area" style="display: none;">
                 <input type="text" id="message-input" placeholder="Type a message...">
                 <button id="send-btn">Send</button>
@@ -61,17 +55,147 @@
             <h2>Edit Profile</h2>
             <label>Display Name:</label>
             <input type="text" id="edit-name-input">
-            
             <label>Profile Picture URL:</label>
-            <input type="text" id="edit-pic-input" placeholder="https://link-to-your-image.com/pic.jpg">
-            
+            <input type="text" id="edit-pic-input" placeholder="https://link.com/pic.jpg">
             <div class="modal-buttons">
-                <button id="save-profile-btn">Save</button>
                 <button id="close-modal-btn">Cancel</button>
+                <button id="save-profile-btn">Save</button>
             </div>
         </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_lmaWDdayWIOKK02h2uvZSeBasdUonXc",
+            authDomain: "chat-with-anyone-73526.firebaseapp.com",
+            projectId: "chat-with-anyone-73526",
+            storageBucket: "chat-with-anyone-73526.firebasestorage.app",
+            messagingSenderId: "440915092993",
+            appId: "1:440915092993:web:96e7af7a1a05156ae6c200",
+            measurementId: "G-E856F2F0B0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentChatId = null;
+        let currentChatUser = null;
+        let unsubscribeMessages = null;
+
+        // Elements
+        const loginScreen = document.getElementById("login-screen");
+        const appScreen = document.getElementById("app-screen");
+        const userList = document.getElementById("user-list");
+        const messagesContainer = document.getElementById("messages");
+        const inputArea = document.getElementById("input-area");
+        const messageInput = document.getElementById("message-input");
+        const chatWithName = document.getElementById("chat-with-name");
+        const profileModal = document.getElementById("profile-modal");
+
+        // Auth
+        document.getElementById("login-btn").addEventListener("click", () => signInWithPopup(auth, new GoogleAuthProvider()));
+        document.getElementById("logout-btn").addEventListener("click", () => signOut(auth));
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                loginScreen.style.display = "none";
+                appScreen.style.display = "flex";
+                
+                document.getElementById("my-name").textContent = user.displayName;
+                document.getElementById("my-profile-pic").src = user.photoURL;
+
+                await setDoc(doc(db, "users", user.uid), {
+                    uid: user.uid, name: user.displayName, email: user.email, photoURL: user.photoURL
+                }, { merge: true });
+
+                loadUsers();
+            } else {
+                currentUser = null;
+                loginScreen.style.display = "flex";
+                appScreen.style.display = "none";
+                if (unsubscribeMessages) unsubscribeMessages();
+            }
+        });
+
+        // Load Users
+        function loadUsers() {
+            onSnapshot(collection(db, "users"), (snapshot) => {
+                userList.innerHTML = ""; 
+                snapshot.forEach((doc) => {
+                    const otherUser = doc.data();
+                    if (otherUser.uid !== currentUser.uid) {
+                        const li = document.createElement("li");
+                        li.innerHTML = `<img src="${otherUser.photoURL}"> <span>${otherUser.name}</span>`;
+                        li.addEventListener("click", () => openPrivateChat(otherUser));
+                        userList.appendChild(li);
+                    }
+                });
+            });
+        }
+
+        // Open Chat
+        function openPrivateChat(otherUser) {
+            currentChatUser = otherUser;
+            currentChatId = currentUser.uid < otherUser.uid ? currentUser.uid + "_" + otherUser.uid : otherUser.uid + "_" + currentUser.uid;
+
+            chatWithName.textContent = otherUser.name;
+            inputArea.style.display = "flex"; 
+
+            if (unsubscribeMessages) unsubscribeMessages();
+
+            const q = query(collection(db, "chats", currentChatId, "messages"), orderBy("timestamp", "asc"));
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
+                messagesContainer.innerHTML = ""; 
+                snapshot.forEach((doc) => {
+                    const msg = doc.data();
+                    const div = document.createElement("div");
+                    div.className = msg.senderId === currentUser.uid ? "message my-message" : "message their-message";
+                    div.textContent = msg.text;
+                    messagesContainer.appendChild(div);
+                });
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        }
+
+        // Send Message
+        document.getElementById("send-btn").addEventListener("click", async () => {
+            const text = messageInput.value.trim();
+            if (!text || !currentChatId) return;
+            messageInput.value = ""; 
+
+            await setDoc(doc(db, "chats", currentChatId), { participants: [currentUser.uid, currentChatUser.uid] }, { merge: true });
+            await addDoc(collection(db, "chats", currentChatId, "messages"), {
+                text: text, senderId: currentUser.uid, timestamp: serverTimestamp()
+            });
+        });
+
+        messageInput.addEventListener("keypress", (e) => { if (e.key === "Enter") document.getElementById("send-btn").click(); });
+
+        // Profile Modal
+        document.getElementById("edit-profile-btn").addEventListener("click", () => {
+            document.getElementById("edit-name-input").value = currentUser.displayName;
+            document.getElementById("edit-pic-input").value = currentUser.photoURL;
+            profileModal.style.display = "flex";
+        });
+        document.getElementById("close-modal-btn").addEventListener("click", () => profileModal.style.display = "none");
+        document.getElementById("save-profile-btn").addEventListener("click", async () => {
+            const newName = document.getElementById("edit-name-input").value.trim();
+            const newPic = document.getElementById("edit-pic-input").value.trim();
+            if (newName && newPic) {
+                await updateProfile(currentUser, { displayName: newName, photoURL: newPic });
+                await updateDoc(doc(db, "users", currentUser.uid), { name: newName, photoURL: newPic });
+                document.getElementById("my-name").textContent = newName;
+                document.getElementById("my-profile-pic").src = newPic;
+                profileModal.style.display = "none";
+            }
+        });
+    </script>
 </body>
 </html>
